@@ -4,9 +4,12 @@
 #include <iostream>
 #include <poll.h>
 #include <unistd.h>
+#include <cstring>
+#include <regex>
 
 #define REQUEST_BUFFER_SIZE 4096
 #define RESPONSE_BUFFER_SIZE 8192
+#define FILE_BUFFER_SIZE 4096
 
 HTTPRequestParser::HTTPRequestParser() {
 
@@ -41,12 +44,32 @@ void HTTPRequestParser::Handle(int socket) {
     delete[] rawRequest;
 }
 
-void HTTPRequestParser::Respond(const HTTPRequest& request, int socket) {
+void HTTPRequestParser::Respond(const HTTPRequest &request, int socket) {
     char *rawResponse = new char[RESPONSE_BUFFER_SIZE];
+    char *fileBuffer = nullptr;
+    size_t fileReadAmount = 0;
+    FILE *fileToSend;
+    std::regex htmlRegex(".html|.htm", std::regex_constants::ECMAScript);
 
-    snprintf(rawResponse, RESPONSE_BUFFER_SIZE, "%s 200 OK\nContent-Type: text/plain\nContent-Length: 12\n"
-                                                "\nHello world!", request.httpVersion.c_str());
-    write(socket, rawResponse, RESPONSE_BUFFER_SIZE);
+    fileToSend = fopen(("." + request.requestURI).c_str(), "rb");
+    if (fileToSend == nullptr) {
+        std::string errorMessage = "File " + request.requestURI + " wasn't found!\n";
+        snprintf(rawResponse, RESPONSE_BUFFER_SIZE,
+                 "%s 404 NOTFOUND\nContent-Type: text/plain\nContent-Length: %lu\n\n%s",
+                 request.httpVersion.c_str(), errorMessage.size(), errorMessage.c_str());
+        write(socket, rawResponse, strlen(rawResponse));
+    } else {
+        fileBuffer = new char[FILE_BUFFER_SIZE];
+        fileReadAmount = fread(fileBuffer, sizeof(char), FILE_BUFFER_SIZE, fileToSend);
+        if (std::regex_search(request.requestURI, htmlRegex)) {
+            snprintf(rawResponse, RESPONSE_BUFFER_SIZE, "%s 200 OK\nContent-Type: text/html\nContent-Length: %lu\n"
+                                                        "\n%s", request.httpVersion.c_str(), fileReadAmount,
+                     fileBuffer);
+            write(socket, rawResponse, strlen(rawResponse));
+        }
+
+        delete[] fileBuffer;
+    }
     close(socket);
     delete[] rawResponse;
 }
