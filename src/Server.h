@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <thread>
+#include "HTTPRequestParser.h"
 
 class Server {
 public:
@@ -23,14 +24,11 @@ private:
     char* SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen);
 
     Server(short port);
-
-    void AcceptThread();
 private:
     static Server* instance;
 
     int serverFd;
     bool isRunning;
-    std::vector<int> clientSockets;
     struct sockaddr_in address;
-    std::unique_ptr<std::thread> acceptThread;
+    HTTPRequestParser requestParser;
 };

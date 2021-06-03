@@ -3,11 +3,7 @@
 #include <memory>
 #include <signal.h>
 #include <fcntl.h>
-#include <syslog.h>
-#include <filesystem>
 #include <deque>
-#include <sys/poll.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -65,10 +61,6 @@ Server::Server(short port) : isRunning(false) {
 }
 
 Server::~Server() {
-    for (auto sock: clientSockets) {
-        close(sock);
-    }
-    acceptThread.reset();
     close(serverFd);
 }
 
@@ -92,73 +84,28 @@ char* Server::SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen) {
     return s;
 }
 
-void Server::AcceptThread() {
+void Server::Run() {
+    isRunning = true;
+
+    signal(SIGTERM, Server::HandleSIGTERM);
+    signal(SIGHUP, Server::HandleSIGHUP);
+
     int clientSocket;
     int addrLen = sizeof(address);
     struct sockaddr sockaddr;
+    char* newAddress = new char [sizeof(sockaddr.sa_data)];
 
     while (isRunning) {
         if ((clientSocket = accept(serverFd, &sockaddr, (socklen_t *) &addrLen)) < 0) {
             perror("accept");
         } else {
-            clientSockets.push_back(clientSocket);
-            char* newAddress = new char [sizeof(sockaddr.sa_data)];
             newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
             std::cout << "New request from " << newAddress << std::endl;
+            requestParser.Handle(clientSocket);
         }
     }
-}
 
-void Server::Run() {
-    isRunning = true;
-    acceptThread = std::make_unique<std::thread>(&Server::AcceptThread, this);
-    acceptThread->detach();
-    const int bufferSize = 4096;
-    char buff[bufferSize];
-    size_t readAmount;
-    std::deque<int> socketNumForRemoval;
-    struct pollfd fd;
-
-    signal(SIGTERM, Server::HandleSIGTERM);
-    signal(SIGHUP, Server::HandleSIGHUP);
-
-    while (isRunning) {
-        for (int i = 0; i < clientSockets.size(); i++) {
-            int socket = clientSockets[i];
-            fd.fd = socket;
-            fd.events = POLLIN;
-
-            int ret = poll(&fd, 1, 100);
-            if (ret == -1) {
-                break;
-            } else if (ret == 0) {
-                continue;
-            } else {
-                readAmount = read(socket, buff, bufferSize);
-                fd.revents = 0;
-            }
-
-            fflush(stdout);
-            snprintf(buff, bufferSize, "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n"
-                                       "\nHello world!");
-            write(socket, buff, strlen(buff));
-            close(socket);
-            socketNumForRemoval.push_front(socket);
-        }
-
-        while (!socketNumForRemoval.empty()) {
-            int socketNum = socketNumForRemoval.front();
-            socketNumForRemoval.pop_front();
-            for (int i = 0; i < clientSockets.size(); i++) {
-                if (clientSockets[i] == socketNum) {
-                    clientSockets.erase(clientSockets.begin() + i);
-                    break;
-                }
-            }
-        }
-
-    }
-    acceptThread.reset();
+    delete[] newAddress;
     close(serverFd);
 }
 

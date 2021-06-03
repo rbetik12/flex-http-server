@@ -3,5 +3,5 @@ project(http_server)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(http_server src/Server.h src/Server.cpp)
+add_executable(http_server src/Server.h src/Server.cpp src/HTTPRequestParser.cpp src/HTTPRequestParser.h src/http/HTTPRequest.h)
 target_link_libraries(http_server pthread)
