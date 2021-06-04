@@ -64,15 +64,15 @@ Server::~Server() {
     close(serverFd);
 }
 
-char* Server::SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen) {
-    switch(sa->sa_family) {
+char *Server::SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen) {
+    switch (sa->sa_family) {
         case AF_INET:
-            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+            inet_ntop(AF_INET, &(((struct sockaddr_in *) sa)->sin_addr),
                       s, maxLen);
             break;
 
         case AF_INET6:
-            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *) sa)->sin6_addr),
                       s, maxLen);
             break;
 
@@ -85,27 +85,19 @@ char* Server::SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen) {
 }
 
 void Server::Run() {
+    acceptThreadPtr = std::make_unique<std::thread>(&Server::AcceptRequestThread, this);
+    acceptThreadPtr->detach();
     isRunning = true;
 
     signal(SIGTERM, Server::HandleSIGTERM);
     signal(SIGHUP, Server::HandleSIGHUP);
 
-    int clientSocket;
-    int addrLen = sizeof(address);
-    struct sockaddr sockaddr;
-    char* newAddress = new char [sizeof(sockaddr.sa_data)];
-
-    while (isRunning) {
-        if ((clientSocket = accept(serverFd, &sockaddr, (socklen_t *) &addrLen)) < 0) {
-            perror("accept");
-        } else {
-            newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
-            std::cout << "New request from " << newAddress << std::endl;
-            requestParser.Handle(clientSocket);
-        }
+    while(isRunning) {
+        std::unique_lock<std::mutex> lock(mainThreadMutex);
+        mainThreadCv.wait(lock, [] {return !Server::GetInstance()->IsRunning();});
     }
 
-    delete[] newAddress;
+    acceptThreadPtr.reset();
     close(serverFd);
 }
 
@@ -115,6 +107,29 @@ void Server::HandleSIGTERM(int signal) {
 
 void Server::HandleSIGHUP(int signal) {
     Server::GetInstance()->Shutdown();
+}
+
+void Server::AcceptRequestThread() {
+    int clientSocket;
+    int addrLen = sizeof(address);
+    struct sockaddr sockaddr;
+    char *newAddress = new char[sizeof(sockaddr.sa_data)];
+
+    while (isRunning) {
+        if ((clientSocket = accept(serverFd, &sockaddr, (socklen_t *) &addrLen)) < 0) {
+            perror("Can't accept new request");
+        } else {
+            newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
+            std::cout << "New request from " << newAddress << std::endl;
+            requestParser.Handle(clientSocket);
+        }
+    }
+
+    delete[] newAddress;
+}
+
+bool Server::IsRunning() {
+    return isRunning;
 }
 
 Server *Server::GetInstance() {
@@ -132,4 +147,6 @@ Server *Server::instance = nullptr;
 
 void Server::Shutdown() {
     isRunning = false;
+    mainThreadCv.notify_one();
+    std::cout << "Shutting down server!" << std::endl;
 }

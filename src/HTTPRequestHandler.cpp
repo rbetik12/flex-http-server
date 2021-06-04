@@ -1,4 +1,4 @@
-#include "HTTPRequestParser.h"
+#include "HTTPRequestHandler.h"
 #include "http/HTTPRequest.h"
 #include <sstream>
 #include <iostream>
@@ -11,15 +11,15 @@
 #define RESPONSE_BUFFER_SIZE 8192
 #define FILE_BUFFER_SIZE 4096
 
-HTTPRequestParser::HTTPRequestParser() {
+HTTPRequestHandler::HTTPRequestHandler() {
 
 }
 
-HTTPRequestParser::~HTTPRequestParser() {
+HTTPRequestHandler::~HTTPRequestHandler() {
 
 }
 
-void HTTPRequestParser::Handle(int socket) {
+void HTTPRequestHandler::Handle(int socket) {
     struct pollfd fd;
     int readAmount;
     char *rawRequest = new char[REQUEST_BUFFER_SIZE];
@@ -30,7 +30,7 @@ void HTTPRequestParser::Handle(int socket) {
     if (ret == -1) {
         throw std::exception();
     } else if (ret == 0) {
-        std::cout << "Request timed out!" << std::endl;
+        close(socket);
     } else {
         readAmount = read(socket, rawRequest, REQUEST_BUFFER_SIZE);
         fd.revents = 0;
@@ -44,7 +44,7 @@ void HTTPRequestParser::Handle(int socket) {
     delete[] rawRequest;
 }
 
-void HTTPRequestParser::Respond(const HTTPRequest &request, int socket) {
+void HTTPRequestHandler::Respond(const HTTPRequest &request, int socket) {
     char *rawResponse = new char[RESPONSE_BUFFER_SIZE];
     char *fileBuffer = nullptr;
     size_t fileReadAmount = 0;
@@ -74,7 +74,7 @@ void HTTPRequestParser::Respond(const HTTPRequest &request, int socket) {
     delete[] rawResponse;
 }
 
-std::vector<std::string> HTTPRequestParser::Split(std::string str, std::string delim) {
+std::vector<std::string> HTTPRequestHandler::Split(std::string str, std::string delim) {
     std::vector<std::string> stringArray;
 
     size_t pos = 0;
@@ -94,7 +94,7 @@ std::vector<std::string> HTTPRequestParser::Split(std::string str, std::string d
     return stringArray;
 }
 
-void HTTPRequestParser::Parse(std::string &rawRequest, int socket) {
+void HTTPRequestHandler::Parse(std::string &rawRequest, int socket) {
     std::vector<std::string> httpHeaderFields;
     std::string httpHeader;
     HTTPRequest request;

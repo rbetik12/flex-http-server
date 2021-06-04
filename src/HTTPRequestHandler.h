@@ -4,10 +4,10 @@
 #include <vector>
 #include "http/HTTPRequest.h"
 
-class HTTPRequestParser {
+class HTTPRequestHandler {
 public:
-    HTTPRequestParser();
-    ~HTTPRequestParser();
+    HTTPRequestHandler();
+    ~HTTPRequestHandler();
 
     void Handle(int socket);
 
