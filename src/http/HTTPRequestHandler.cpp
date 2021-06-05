@@ -1,5 +1,5 @@
 #include "HTTPRequestHandler.h"
-#include "http/HTTPRequest.h"
+#include "HTTPRequest.h"
 #include <sstream>
 #include <iostream>
 #include <poll.h>
@@ -12,7 +12,6 @@
 #define FILE_BUFFER_SIZE 4096
 
 HTTPRequestHandler::HTTPRequestHandler() {
-
 }
 
 HTTPRequestHandler::~HTTPRequestHandler() {

@@ -8,7 +8,8 @@
 #include <string.h>
 #include <thread>
 #include <condition_variable>
-#include "HTTPRequestHandler.h"
+#include "http/HTTPRequestHandler.h"
+#include "threading/ThreadPool.h"
 
 class Server {
 public:
@@ -36,4 +37,5 @@ private:
     std::condition_variable mainThreadCv;
     std::mutex mainThreadMutex;
     std::unique_ptr<std::thread> acceptThreadPtr;
+    std::unique_ptr<ThreadPool> threadPool;
 };

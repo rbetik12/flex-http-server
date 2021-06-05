@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include "http/HTTPRequest.h"
+#include "HTTPRequest.h"
 
 class HTTPRequestHandler {
 public:

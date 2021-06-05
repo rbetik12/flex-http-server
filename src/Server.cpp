@@ -58,6 +58,9 @@ Server::Server(short port) : isRunning(false) {
         exit(EXIT_FAILURE);
     }
     std::cout << "Server listening at 0.0.0.0:" << port << "!" << std::endl;
+
+    auto* threadPoolPtr = new ThreadPool(std::thread::hardware_concurrency());
+    threadPool.reset(threadPoolPtr);
 }
 
 Server::~Server() {
@@ -121,7 +124,9 @@ void Server::AcceptRequestThread() {
         } else {
             newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
             std::cout << "New request from " << newAddress << std::endl;
-            requestParser.Handle(clientSocket);
+            threadPool->Enqueue([=] {
+                requestParser.Handle(clientSocket);
+            });
         }
     }
 
