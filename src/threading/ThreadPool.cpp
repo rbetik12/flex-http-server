@@ -1,4 +1,6 @@
+#include <Log.h>
 #include "ThreadPool.h"
+#include <sstream>
 
 ThreadPool::ThreadPool(size_t threadsNumber) {
     Start(threadsNumber);
@@ -11,6 +13,9 @@ ThreadPool::~ThreadPool() {
 void ThreadPool::Start(size_t threadNumber) {
     for (auto i = 0; i < threadNumber; i++) {
         threads.emplace_back([=] {
+            std::stringstream ss;
+            ss << std::this_thread::get_id();
+            TRACE("Started worker thread with id {0}", ss.str().c_str());
             while (true) {
                 Task task;
                 {
@@ -26,6 +31,7 @@ void ThreadPool::Start(size_t threadNumber) {
                 }
                 task();
             }
+            TRACE("Stopped worker thread with id {0}", ss.str().c_str());
         });
     }
 }

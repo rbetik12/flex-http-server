@@ -6,6 +6,7 @@
 #include <functional>
 #include <queue>
 #include <future>
+#include <unordered_map>
 
 class ThreadPool {
 public:

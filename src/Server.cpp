@@ -6,6 +6,7 @@
 #include <deque>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <Log.h>
 
 int main(int argc, char *argv[]) {
     short port;
@@ -57,10 +58,15 @@ Server::Server(short port) : isRunning(false) {
         close(serverFd);
         exit(EXIT_FAILURE);
     }
-    std::cout << "Server listening at 0.0.0.0:" << port << "!" << std::endl;
 
-    auto* threadPoolPtr = new ThreadPool(std::thread::hardware_concurrency());
+    Log::Init();
+
+    INFO("Server listening at 0.0.0.0:{0}", port);
+
+    const size_t threadsAmount = std::thread::hardware_concurrency();
+    auto* threadPoolPtr = new ThreadPool(threadsAmount);
     threadPool.reset(threadPoolPtr);
+    INFO("Successfully initialized {0} worker thread", threadsAmount);
 }
 
 Server::~Server() {
@@ -117,19 +123,19 @@ void Server::AcceptRequestThread() {
     int addrLen = sizeof(address);
     struct sockaddr sockaddr;
     char *newAddress = new char[sizeof(sockaddr.sa_data)];
-
+    INFO("Started accepting thread");
     while (isRunning) {
         if ((clientSocket = accept(serverFd, &sockaddr, (socklen_t *) &addrLen)) < 0) {
             perror("Can't accept new request");
         } else {
             newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
-            std::cout << "New request from " << newAddress << std::endl;
+            TRACE("New request from {0}", newAddress);
             threadPool->Enqueue([=] {
                 requestParser.Handle(clientSocket);
             });
         }
     }
-
+    INFO("Stopped accepting thread");
     delete[] newAddress;
 }
 
@@ -153,5 +159,5 @@ Server *Server::instance = nullptr;
 void Server::Shutdown() {
     isRunning = false;
     mainThreadCv.notify_one();
-    std::cout << "Shutting down server!" << std::endl;
+    INFO("Shutting down server!");
 }
