@@ -14,7 +14,7 @@
 class Server {
 public:
     static Server* GetInstance();
-    static Server* Create(short port);
+    static Server* Create(const char* ip, short port);
     bool IsRunning();
     ~Server();
 
@@ -25,7 +25,7 @@ private:
     static void HandleSIGHUP(int signal);
     char* SockAddrToStr(const struct sockaddr *sa, char *s, size_t maxLen);
 
-    Server(short port);
+    Server(const char* ip, short port);
     void AcceptRequestThread();
 private:
     static Server* instance;

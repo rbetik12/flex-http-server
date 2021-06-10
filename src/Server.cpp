@@ -8,28 +8,26 @@
 #include <arpa/inet.h>
 #include <Log.h>
 
-#define IP_ADDRESS "192.168.1.62"
-
 int main(int argc, char *argv[]) {
     short port;
     std::unique_ptr<Server> server;
 
-    if (argc < 2) {
-        fputs("server <port>", stderr);
+    if (argc < 3) {
+        fputs("server <ip address> <port>", stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (!(port = atoi(argv[1]))) {
+    if (!(port = atoi(argv[2]))) {
         fputs("Port must be a number between 0 and 65536", stderr);
         exit(EXIT_FAILURE);
     }
 
-    server.reset(Server::Create(port));
+    server.reset(Server::Create(argv[1], port));
     server->Run();
     return 0;
 }
 
-Server::Server(short port) : isRunning(false) {
+Server::Server(const char* ip, short port) : isRunning(false) {
     int opt;
 
     if ((serverFd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -45,7 +43,11 @@ Server::Server(short port) : isRunning(false) {
     }
 
     address.sin_family = AF_INET;
-    inet_aton(IP_ADDRESS, &address.sin_addr);
+    if (!inet_aton(ip, &address.sin_addr)) {
+        perror("Incorrect ipv4 address provided");
+        close(serverFd);
+        exit(EXIT_FAILURE);
+    }
     address.sin_port = htons(port);
 
     if (bind(serverFd, (struct sockaddr *) &address,
@@ -63,7 +65,7 @@ Server::Server(short port) : isRunning(false) {
 
     Log::Init();
 
-    INFO("Server listening at {0}:{1}", IP_ADDRESS, port);
+    INFO("Server listening at {0}:{1}", ip, port);
 
     const size_t threadsAmount = std::thread::hardware_concurrency();
     auto* threadPoolPtr = new ThreadPool(threadsAmount);
@@ -151,9 +153,9 @@ Server *Server::GetInstance() {
     return instance;
 }
 
-Server *Server::Create(short port) {
+Server *Server::Create(const char* ip, short port) {
     if (instance == nullptr) {
-        instance = new Server(port);
+        instance = new Server(ip, port);
     }
     return instance;
 }
