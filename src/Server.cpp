@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <Log.h>
 
+#define IP_ADDRESS "192.168.1.62"
+
 int main(int argc, char *argv[]) {
     short port;
     std::unique_ptr<Server> server;
@@ -43,7 +45,7 @@ Server::Server(short port) : isRunning(false) {
     }
 
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    inet_aton(IP_ADDRESS, &address.sin_addr);
     address.sin_port = htons(port);
 
     if (bind(serverFd, (struct sockaddr *) &address,
@@ -61,7 +63,7 @@ Server::Server(short port) : isRunning(false) {
 
     Log::Init();
 
-    INFO("Server listening at 0.0.0.0:{0}", port);
+    INFO("Server listening at {0}:{1}", IP_ADDRESS, port);
 
     const size_t threadsAmount = std::thread::hardware_concurrency();
     auto* threadPoolPtr = new ThreadPool(threadsAmount);
@@ -131,7 +133,9 @@ void Server::AcceptRequestThread() {
             newAddress = SockAddrToStr(&sockaddr, newAddress, sizeof(sockaddr.sa_data));
             TRACE("New request from {0}", newAddress);
             threadPool->Enqueue([=] {
-                requestParser.Handle(clientSocket);
+                HTTPSocket socket{};
+                socket.socketFd = clientSocket;
+                requestParser.Handle(socket);
             });
         }
     }
